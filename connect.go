@@ -82,6 +82,13 @@ func DBMapAddTable(i interface{}) {
 	dbmap.AddTable(i)
 }
 
+func DBMapAddTableWithName(i interface{}, name string) {
+	if dbmap == nil {
+		dbmap = IndependentDbMapper()
+	}
+	dbmap.AddTableWithName(i, name)
+}
+
 func TableName(i interface{}) string {
 	t := reflect.TypeOf(i)
 	if table, err := DBMap().TableFor(t, false); table != nil && err == nil {
