@@ -7,7 +7,6 @@ import (
 	"os"
 	"reflect"
 
-	"github.com/zew/exceldb/config"
 	"github.com/zew/gorp"
 	"github.com/zew/logx"
 	"github.com/zew/util"
@@ -16,15 +15,35 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+type SQLHost struct {
+	Type             string            `json:"type"` // sqlite3
+	User             string            `json:"user"`
+	Host             string            `json:"host"`
+	Port             string            `json:"port"`
+	DBName           string            `json:"db_name"`
+	ConnectionParams map[string]string `json:"connection_params"`
+}
+
+type SQLHosts map[string]SQLHost
+
+var sh SQLHost
+
 var db *sql.DB
 var dbmap *gorp.DbMap
 
-func DB(dbName ...string) *sql.DB {
+func DB(hosts ...SQLHosts) *sql.DB {
+
 	if db == nil {
+
 		var err error
-		sh := config.Config.SQLHosts[util.Env()]
-		if len(dbName) > 0 {
-			sh.DBName = dbName[0]
+
+		if len(hosts) == 0 {
+			logx.Fatalf("First call to DB() requires host config argument")
+		}
+		sh = hosts[0][util.Env()]
+
+		if sh.Type != "mysql" && sh.Type != "sqlite3" {
+			logx.Fatalf("sql host type unknown")
 		}
 
 		// param docu at https://github.com/go-sql-driver/mysql
@@ -33,8 +52,11 @@ func DB(dbName ...string) *sql.DB {
 			paramsJoined = fmt.Sprintf("%s%s=%s&", paramsJoined, k, v)
 		}
 
-		if config.Config.SQLite {
+		if sh.Type == "sqlite3" {
 			db, err = sql.Open("sqlite3", "./main.sqlite")
+
+			logx.Fatalf("check the directory of main.sqlite")
+
 			util.CheckErr(err)
 		} else {
 			connStr2 := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", sh.User, util.EnvVar("SQL_PW"), sh.Host, sh.Port, sh.DBName, paramsJoined)
@@ -53,7 +75,7 @@ func DB(dbName ...string) *sql.DB {
 
 func IndependentDbMapper() *gorp.DbMap {
 	var dbmap *gorp.DbMap
-	if config.Config.SQLite {
+	if sh.Type == "sqlite3" {
 		dbmap = &gorp.DbMap{Db: DB(), Dialect: gorp.SqliteDialect{}}
 		// We have to enable foreign_keys for EVERY connection
 		// There is a gorp pull request, implementing this
