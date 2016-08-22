@@ -6,10 +6,8 @@ import (
 	"log"
 	"os"
 	"path"
-	"reflect"
 	"runtime"
 
-	"github.com/zew/gorp"
 	"github.com/zew/logx"
 	"github.com/zew/util"
 
@@ -28,136 +26,84 @@ type SQLHost struct {
 
 type SQLHosts map[string]SQLHost
 
-var sh SQLHost
+func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 
-var db *sql.DB
-var dbmap *gorp.DbMap
+	var (
+		db3 *sql.DB
+		sh3 SQLHost
+		err error
+	)
 
-func DB() *sql.DB {
-	if db == nil {
-		logx.Fatalf("DB() requires previous call to DBInit()")
+	if len(hosts) == 0 {
+		logx.Fatalf("DbInit() requires a map of hosts as argument. Subsequently calls DB()")
 	}
-	return db
-}
+	cnKey := util.Env()
+	if len(keys) > 0 {
+		cnKey = keys[0]
+	}
+	sh3 = hosts[cnKey]
 
-func DbInit(hosts SQLHosts) *sql.DB {
+	if sh3.Type != "mysql" && sh3.Type != "sqlite3" {
+		logx.Fatalf("sql host type unknown")
+	}
 
-	if db == nil {
+	// param docu at https://github.com/go-sql-driver/mysql
+	paramsJoined := "?"
+	for k, v := range sh3.ConnectionParams {
+		paramsJoined = fmt.Sprintf("%s%s=%s&", paramsJoined, k, v)
+	}
 
-		var err error
+	if sh3.Type == "sqlite3" {
 
-		if len(hosts) == 0 {
-			logx.Fatalf("DbInit() requires a map of hosts as argument. Subsequent calls dont.")
-		}
-		sh = hosts[util.Env()]
-
-		if sh.Type != "mysql" && sh.Type != "sqlite3" {
-			logx.Fatalf("sql host type unknown")
-		}
-
-		// param docu at https://github.com/go-sql-driver/mysql
-		paramsJoined := "?"
-		for k, v := range sh.ConnectionParams {
-			paramsJoined = fmt.Sprintf("%s%s=%s&", paramsJoined, k, v)
-		}
-
-		if sh.Type == "sqlite3" {
-
-			workDir, err := os.Getwd()
-			util.CheckErr(err)
-			_, srcFile, _, ok := runtime.Caller(1)
-			if !ok {
-				logx.Fatalf("runtime caller not found")
-			}
-
-			fName := "main.sqlite"
-			paths := []string{
-				path.Join(path.Dir(srcFile), fName),
-				path.Join(".", fName),
-				path.Join(workDir, fName),
-			}
-
-			found := false
-			for _, v := range paths {
-				// file, err = os.Open(v)
-				db, err = sql.Open("sqlite3", "./main.sqlite")
-				if err != nil {
-					logx.Printf("could not open v: %v", v, err)
-					continue
-				}
-				found = true
-				break
-			}
-			if !found {
-				logx.Fatalf("check the directory of main.sqlite")
-			}
-
-		} else {
-			connStr2 := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", sh.User, util.EnvVar("SQL_PW"), sh.Host, sh.Port, sh.DBName, paramsJoined)
-			logx.Printf("gorp conn: %v", connStr2)
-			db, err = sql.Open("mysql", connStr2)
-			util.CheckErr(err)
-		}
-
-		err = db.Ping()
+		workDir, err := os.Getwd()
 		util.CheckErr(err)
-		logx.Printf("gorp database connection up")
+		_, srcFile, _, ok := runtime.Caller(1)
+		if !ok {
+			logx.Fatalf("runtime caller not found")
+		}
 
-	}
-	return db
-}
+		fName := "main.sqlite"
+		paths := []string{
+			path.Join(path.Dir(srcFile), fName),
+			path.Join(".", fName),
+			path.Join(workDir, fName),
+		}
 
-func IndependentDbMapper() *gorp.DbMap {
-	var dbmap *gorp.DbMap
-	if sh.Type == "sqlite3" {
-		dbmap = &gorp.DbMap{Db: DB(), Dialect: gorp.SqliteDialect{}}
-		// We have to enable foreign_keys for EVERY connection
-		// There is a gorp pull request, implementing this
-		hasFK1, err := dbmap.SelectStr("PRAGMA foreign_keys")
-		logx.Printf("PRAGMA foreign_keys is %v | err is %v", hasFK1, err)
-		dbmap.Exec("PRAGMA foreign_keys = true")
-		hasFK2, err := dbmap.SelectStr("PRAGMA foreign_keys")
-		logx.Printf("PRAGMA foreign_keys is %v | err is %v", hasFK2, err)
+		found := false
+		for _, v := range paths {
+			// file, err = os.Open(v)
+			db3, err = sql.Open("sqlite3", "./main.sqlite")
+			if err != nil {
+				logx.Printf("cn %q: could not open %v: %v", cnKey, v, err)
+				continue
+			}
+			found = true
+			break
+		}
+		if !found {
+			logx.Fatalf("cn %q: check the directory of main.sqlite", cnKey)
+		}
+
 	} else {
-		dbmap = &gorp.DbMap{Db: DB(), Dialect: gorp.MySQLDialect{"InnoDB", "UTF8"}}
+		connStr2 := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", sh3.User, util.EnvVar("SQL_PW"), sh3.Host, sh3.Port, sh3.DBName, paramsJoined)
+		logx.Printf("cn %q - gorp conn: %v", cnKey, connStr2)
+		db3, err = sql.Open("mysql", connStr2)
+		util.CheckErr(err)
 	}
-	return dbmap
+
+	err = db3.Ping()
+	util.CheckErr(err)
+	logx.Printf("cn %q: gorp database connection up", cnKey)
+
+	return sh3, db3
 }
 
-func DBMap() *gorp.DbMap {
-	if dbmap == nil {
-		dbmap = IndependentDbMapper()
-	}
-	return dbmap
-}
-
-func DBMapAddTable(i interface{}) {
-	if dbmap == nil {
-		dbmap = IndependentDbMapper()
-	}
-	dbmap.AddTable(i)
-}
-
-func DBMapAddTableWithName(i interface{}, name string) {
-	if dbmap == nil {
-		dbmap = IndependentDbMapper()
-	}
-	dbmap.AddTableWithName(i, name)
-}
-
-func TableName(i interface{}) string {
-	t := reflect.TypeOf(i)
-	if table, err := DBMap().TableFor(t, false); table != nil && err == nil {
-		return DBMap().Dialect.QuoteField(table.TableName)
-	}
-	return t.Name()
-}
-
+// Not for independent dbMappers
 func TraceOn() {
-	DBMap().TraceOn("gorp: ", log.New(os.Stdout, "", 0))
+	DbMap1().TraceOn("gorp: ", log.New(os.Stdout, "", 0))
 }
 func TraceOff() {
-	DBMap().TraceOff()
+	DbMap1().TraceOff()
 }
 
 // checkRes is checking the error *and* the sql result
