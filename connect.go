@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"reflect"
+	"runtime"
 
 	"github.com/zew/gorp"
 	"github.com/zew/logx"
@@ -31,16 +33,23 @@ var sh SQLHost
 var db *sql.DB
 var dbmap *gorp.DbMap
 
-func DB(hosts ...SQLHosts) *sql.DB {
+func DB() *sql.DB {
+	if db == nil {
+		logx.Fatalf("DB() requires previous call to DBInit()")
+	}
+	return db
+}
+
+func DbInit(hosts SQLHosts) *sql.DB {
 
 	if db == nil {
 
 		var err error
 
 		if len(hosts) == 0 {
-			logx.Fatalf("First call to DB() requires host config argument")
+			logx.Fatalf("DbInit() requires a map of hosts as argument. Subsequent calls dont.")
 		}
-		sh = hosts[0][util.Env()]
+		sh = hosts[util.Env()]
 
 		if sh.Type != "mysql" && sh.Type != "sqlite3" {
 			logx.Fatalf("sql host type unknown")
@@ -53,11 +62,36 @@ func DB(hosts ...SQLHosts) *sql.DB {
 		}
 
 		if sh.Type == "sqlite3" {
-			db, err = sql.Open("sqlite3", "./main.sqlite")
 
-			logx.Fatalf("check the directory of main.sqlite")
-
+			workDir, err := os.Getwd()
 			util.CheckErr(err)
+			_, srcFile, _, ok := runtime.Caller(1)
+			if !ok {
+				logx.Fatalf("runtime caller not found")
+			}
+
+			fName := "main.sqlite"
+			paths := []string{
+				path.Join(path.Dir(srcFile), fName),
+				path.Join(".", fName),
+				path.Join(workDir, fName),
+			}
+
+			found := false
+			for _, v := range paths {
+				// file, err = os.Open(v)
+				db, err = sql.Open("sqlite3", "./main.sqlite")
+				if err != nil {
+					logx.Printf("could not open v: %v", v, err)
+					continue
+				}
+				found = true
+				break
+			}
+			if !found {
+				logx.Fatalf("check the directory of main.sqlite")
+			}
+
 		} else {
 			connStr2 := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", sh.User, util.EnvVar("SQL_PW"), sh.Host, sh.Port, sh.DBName, paramsJoined)
 			logx.Printf("gorp conn: %v", connStr2)
