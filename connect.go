@@ -100,10 +100,20 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 
 // Not for independent dbMappers
 func TraceOn() {
-	DbMap1().TraceOn("gorp: ", log.New(os.Stdout, "", 0))
+	if dbmap1 != nil {
+		dbmap1.TraceOn("gorpx cn1: ", log.New(os.Stdout, "", 0))
+	}
+	if dbmap2 != nil {
+		dbmap2.TraceOn("gorpx cn1: ", log.New(os.Stdout, "", 0))
+	}
 }
 func TraceOff() {
-	DbMap1().TraceOff()
+	if dbmap1 != nil {
+		dbmap1.TraceOff()
+	}
+	if dbmap2 != nil {
+		dbmap2.TraceOff()
+	}
 }
 
 // checkRes is checking the error *and* the sql result
