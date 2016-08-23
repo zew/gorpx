@@ -6,6 +6,7 @@ import (
 
 	"github.com/zew/gorp"
 	"github.com/zew/logx"
+	"github.com/zew/util"
 )
 
 //
@@ -32,11 +33,11 @@ func IndependentDb2Mapper() *gorp.DbMap {
 		dbmap = &gorp.DbMap{Db: Db2(), Dialect: gorp.SqliteDialect{}}
 		// We have to enable foreign_keys for EVERY connection
 		// There is a gorp pull request, implementing this
-		hasFK_A, err := dbmap.SelectStr("PRAGMA foreign_keys")
-		logx.Printf("PRAGMA foreign_keys is %v | err is %v", hasFK_A, err)
-		dbmap.Exec("PRAGMA foreign_keys = true")
+		// dbmap.Exec("PRAGMA foreign_keys = true")
+		dbmap.Exec("PRAGMA foreign_keys = ON")
 		hasFK_B, err := dbmap.SelectStr("PRAGMA foreign_keys")
-		logx.Printf("PRAGMA foreign_keys is %v | err is %v", hasFK_B, err)
+		util.CheckErr(err)
+		logx.Printf("PRAGMA foreign_keys is %v  %T | err is %v", hasFK_B, hasFK_B, err)
 	} else {
 		dbmap = &gorp.DbMap{Db: Db2(), Dialect: gorp.MySQLDialect{"InnoDB", "UTF8"}}
 	}
