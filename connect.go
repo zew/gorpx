@@ -37,7 +37,7 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 	if len(hosts) == 0 {
 		logx.Fatalf("DbInit() requires a map of hosts as argument. Subsequently calls DB()")
 	}
-	cnKey := util.Env()
+	cnKey := util.PrimeDataSource()
 	if len(keys) > 0 {
 		cnKey = keys[0]
 	}
@@ -64,9 +64,9 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 
 		fName := "main.sqlite"
 		paths := []string{
-			path.Join(path.Dir(srcFile), fName),
 			path.Join(".", fName),
 			path.Join(workDir, fName),
+			path.Join(path.Dir(srcFile), fName), // src file location as last option
 		}
 
 		found := false
