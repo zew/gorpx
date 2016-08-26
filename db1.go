@@ -54,12 +54,12 @@ func DbMap1() *gorp.DbMap {
 	return dbmap1
 }
 
-func DbMap1AddTable(i interface{}) {
-	DbMap1().AddTable(i)
+func DbMap1AddTable(i interface{}) *gorp.TableMap {
+	return DbMap1().AddTable(i)
 }
 
-func DbMap1AddTableWithName(i interface{}, name string) {
-	DbMap1().AddTableWithName(i, name)
+func DbMap1AddTableWithName(i interface{}, name string) *gorp.TableMap {
+	return DbMap1().AddTableWithName(i, name)
 }
 
 func Db1TableName(i interface{}) string {
