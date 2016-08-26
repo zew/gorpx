@@ -50,27 +50,26 @@ func DbMap1() *gorp.DbMap {
 	if dbmap1 == nil {
 		dbmap1 = IndependentDb1Mapper()
 	}
+	// logx.Printf("Dialect1: %v", dbmap1.Dialect)
 	return dbmap1
 }
 
 func DbMap1AddTable(i interface{}) {
-	if dbmap1 == nil {
-		dbmap1 = IndependentDb1Mapper()
-	}
-	dbmap1.AddTable(i)
+	DbMap1().AddTable(i)
 }
 
 func DbMap1AddTableWithName(i interface{}, name string) {
-	if dbmap1 == nil {
-		dbmap1 = IndependentDb1Mapper()
-	}
-	dbmap1.AddTableWithName(i, name)
+	DbMap1().AddTableWithName(i, name)
 }
 
 func Db1TableName(i interface{}) string {
 	t := reflect.TypeOf(i)
 	if table, err := DbMap1().TableFor(t, false); table != nil && err == nil {
-		return DbMap1().Dialect.QuoteField(table.TableName)
+		if DbMap1().Dialect == nil {
+			logx.Fatalf("DbMap1 has no dialect")
+		}
+		ret := DbMap1().Dialect.QuoteField(table.TableName)
+		return ret
 	}
 	return t.Name()
 }

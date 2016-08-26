@@ -37,7 +37,9 @@ func IndependentDb2Mapper() *gorp.DbMap {
 		dbmap.Exec("PRAGMA foreign_keys = ON")
 		hasFK_B, err := dbmap.SelectStr("PRAGMA foreign_keys")
 		util.CheckErr(err)
-		logx.Printf("PRAGMA foreign_keys is %v  %T | err is %v", hasFK_B, hasFK_B, err)
+		if hasFK_B != "1" {
+			logx.Printf("PRAGMA foreign_keys is %v  %T | err is %v", hasFK_B, hasFK_B, err)
+		}
 	} else {
 		dbmap = &gorp.DbMap{Db: Db2(), Dialect: gorp.MySQLDialect{"InnoDB", "UTF8"}}
 	}
@@ -48,27 +50,26 @@ func DbMap2() *gorp.DbMap {
 	if dbmap2 == nil {
 		dbmap2 = IndependentDb2Mapper()
 	}
+	// logx.Printf("Dialect2: %v", dbmap2.Dialect)
 	return dbmap2
 }
 
 func DbMap2AddTable(i interface{}) {
-	if dbmap2 == nil {
-		dbmap2 = IndependentDb2Mapper()
-	}
-	dbmap2.AddTable(i)
+	DbMap2().AddTable(i)
 }
 
 func DbMap2AddTableWithName(i interface{}, name string) {
-	if dbmap2 == nil {
-		dbmap2 = IndependentDb2Mapper()
-	}
-	dbmap2.AddTableWithName(i, name)
+	DbMap2().AddTableWithName(i, name)
 }
 
 func Db2TableName(i interface{}) string {
 	t := reflect.TypeOf(i)
 	if table, err := DbMap2().TableFor(t, false); table != nil && err == nil {
-		return DbMap2().Dialect.QuoteField(table.TableName)
+		if DbMap2().Dialect == nil {
+			logx.Fatalf("DbMap2 has no dialect")
+		}
+		ret := DbMap2().Dialect.QuoteField(table.TableName)
+		return ret
 	}
 	return t.Name()
 }

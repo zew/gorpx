@@ -20,7 +20,7 @@ type SQLHost struct {
 	User             string            `json:"user"`
 	Host             string            `json:"host"`
 	Port             string            `json:"port"`
-	DBName           string            `json:"db_name"`
+	DBName           string            `json:"db_name"` // also sqlite3 filename
 	ConnectionParams map[string]string `json:"connection_params"`
 }
 
@@ -62,7 +62,7 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 			logx.Fatalf("runtime caller not found")
 		}
 
-		fName := "main.sqlite"
+		fName := fmt.Sprintf("%v.sqlite", sh3.DBName)
 		paths := []string{
 			path.Join(".", fName),
 			path.Join(workDir, fName),
@@ -72,7 +72,7 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 		found := false
 		for _, v := range paths {
 			// file, err = os.Open(v)
-			db3, err = sql.Open("sqlite3", "./main.sqlite")
+			db3, err = sql.Open("sqlite3", v)
 			if err != nil {
 				logx.Printf("cn %q: could not open %v: %v", cnKey, v, err)
 				continue
