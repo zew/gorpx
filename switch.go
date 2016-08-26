@@ -1,11 +1,6 @@
 package gorpx
 
-import (
-	"sync"
-
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/mattn/go-sqlite3"
-)
+import "sync"
 
 var l sync.Mutex
 
