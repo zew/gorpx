@@ -127,10 +127,10 @@ func CheckRes(sqlRes sql.Result, err error) {
 	affected, err := sqlRes.RowsAffected()
 	util.CheckErr(err)
 	if affected > 0 && liId > 0 {
-		logx.Printf("%d row(s) affected ; lastInsertId %d ", affected, liId)
+		logx.Printf("%d row(s) affected; Id %d ", affected, liId)
 	} else if affected > 0 {
 		logx.Printf("%d row(s) affected", affected)
 	} else if liId > 0 {
-		logx.Printf("%d liId", liId)
+		logx.Printf("Id %d", liId)
 	}
 }
