@@ -54,14 +54,6 @@ func DbMap2() *gorp.DbMap {
 	return dbmap2
 }
 
-func DbMap2AddTable(i interface{}) *gorp.TableMap {
-	return DbMap2().AddTable(i)
-}
-
-func DbMap2AddTableWithName(i interface{}, name string) *gorp.TableMap {
-	return DbMap2().AddTableWithName(i, name)
-}
-
 func Db2TableName(i interface{}) string {
 	t := reflect.TypeOf(i)
 	if table, err := DbMap2().TableFor(t, false); table != nil && err == nil {
