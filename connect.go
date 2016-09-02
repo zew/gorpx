@@ -20,7 +20,7 @@ type SQLHost struct {
 	User             string            `json:"user"`
 	Host             string            `json:"host"`
 	Port             string            `json:"port"`
-	DBName           string            `json:"db_name"` // also sqlite3 filename
+	DbName           string            `json:"db_name"` // also sqlite3 filename
 	ConnectionParams map[string]string `json:"connection_params"`
 }
 
@@ -29,8 +29,8 @@ type SQLHosts map[string]SQLHost
 func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 
 	var (
-		db3 *sql.DB
-		sh3 SQLHost
+		db4 *sql.DB
+		sh  SQLHost
 		err error
 	)
 
@@ -41,19 +41,19 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 	if len(keys) > 0 {
 		cnKey = keys[0]
 	}
-	sh3 = hosts[cnKey]
+	sh = hosts[cnKey]
 
-	if sh3.Type != "mysql" && sh3.Type != "sqlite3" {
-		logx.Fatalf("sql host type unknown")
+	if sh.Type != "mysql" && sh.Type != "sqlite3" {
+		logx.Fatalf("sql host type %q unknown", sh.Type)
 	}
 
 	// param docu at https://github.com/go-sql-driver/mysql
 	paramsJoined := "?"
-	for k, v := range sh3.ConnectionParams {
+	for k, v := range sh.ConnectionParams {
 		paramsJoined = fmt.Sprintf("%s%s=%s&", paramsJoined, k, v)
 	}
 
-	if sh3.Type == "sqlite3" {
+	if sh.Type == "sqlite3" {
 
 		workDir, err := os.Getwd()
 		util.CheckErr(err)
@@ -62,7 +62,7 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 			logx.Fatalf("runtime caller not found")
 		}
 
-		fName := fmt.Sprintf("%v.sqlite", sh3.DBName)
+		fName := fmt.Sprintf("%v.sqlite", sh.DbName)
 		paths := []string{
 			path.Join(".", fName),
 			path.Join(workDir, fName),
@@ -72,7 +72,7 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 		found := false
 		for _, v := range paths {
 			// file, err = os.Open(v)
-			db3, err = sql.Open("sqlite3", v)
+			db4, err = sql.Open("sqlite3", v)
 			if err != nil {
 				logx.Printf("cn %q: could not open %v: %v", cnKey, v, err)
 				continue
@@ -85,34 +85,34 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 		}
 
 	} else {
-		connStr2 := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", sh3.User, util.EnvVar("SQL_PW"), sh3.Host, sh3.Port, sh3.DBName, paramsJoined)
+		connStr2 := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", sh.User, util.EnvVar("SQL_PW"), sh.Host, sh.Port, sh.DbName, paramsJoined)
 		logx.Printf("cn %q - gorp conn: %v", cnKey, connStr2)
-		db3, err = sql.Open("mysql", connStr2)
+		db4, err = sql.Open("mysql", connStr2)
 		util.CheckErr(err)
 	}
 
-	err = db3.Ping()
+	err = db4.Ping()
 	util.CheckErr(err)
 	logx.Printf("cn %q: gorp database connection up", cnKey)
 
-	return sh3, db3
+	return sh, db4
 }
 
 // Not for independent dbMappers
 func TraceOn() {
-	if dbmap1 != nil {
-		dbmap1.TraceOn("gorpx cn1: ", log.New(os.Stdout, "", 0))
+	if db1map != nil {
+		db1map.TraceOn("gorpx cn1: ", log.New(os.Stdout, "", 0))
 	}
-	if dbmap2 != nil {
-		dbmap2.TraceOn("gorpx cn1: ", log.New(os.Stdout, "", 0))
+	if db2map != nil {
+		db2map.TraceOn("gorpx cn1: ", log.New(os.Stdout, "", 0))
 	}
 }
 func TraceOff() {
-	if dbmap1 != nil {
-		dbmap1.TraceOff()
+	if db1map != nil {
+		db1map.TraceOff()
 	}
-	if dbmap2 != nil {
-		dbmap2.TraceOff()
+	if db2map != nil {
+		db2map.TraceOff()
 	}
 }
 

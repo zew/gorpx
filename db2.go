@@ -13,7 +13,7 @@ import (
 //
 var sh2 SQLHost
 var db2 *sql.DB
-var dbmap2 *gorp.DbMap
+var db2map *gorp.DbMap
 
 func InitDb2(hosts SQLHosts, key ...string) {
 	if db2 == nil {
@@ -46,21 +46,21 @@ func IndependentDb2Mapper() *gorp.DbMap {
 	return dbmap
 }
 
-func DbMap2() *gorp.DbMap {
-	if dbmap2 == nil {
-		dbmap2 = IndependentDb2Mapper()
+func Db2Map() *gorp.DbMap {
+	if db2map == nil {
+		db2map = IndependentDb2Mapper()
 	}
-	// logx.Printf("Dialect2: %v", dbmap2.Dialect)
-	return dbmap2
+	// logx.Printf("Dialect2: %v", db2map.Dialect)
+	return db2map
 }
 
 func Db2TableName(i interface{}) string {
 	t := reflect.TypeOf(i)
-	if table, err := DbMap2().TableFor(t, false); table != nil && err == nil {
-		if DbMap2().Dialect == nil {
-			logx.Fatalf("DbMap2 has no dialect")
+	if table, err := Db2Map().TableFor(t, false); table != nil && err == nil {
+		if Db2Map().Dialect == nil {
+			logx.Fatalf("db2map has no dialect")
 		}
-		ret := DbMap2().Dialect.QuoteField(table.TableName)
+		ret := Db2Map().Dialect.QuoteField(table.TableName)
 		return ret
 	}
 	return t.Name()

@@ -10,10 +10,10 @@ func Switch() string {
 
 	ret := ""
 
-	if sh2.DBName != "" && db2 != nil && dbmap2 != nil {
-		tmpSh1, tmpDb1, tmpDbmap1 := sh1, db1, dbmap1
-		sh1, db1, dbmap1 = sh2, db2, dbmap2
-		sh2, db2, dbmap2 = tmpSh1, tmpDb1, tmpDbmap1
+	if sh2.DbName != "" && db2 != nil && db2map != nil {
+		tmpSh1, tmpDb1, tmpDb1Map := sh1, db1, db1map
+		sh1, db1, db1map = sh2, db2, db2map
+		sh2, db2, db2map = tmpSh1, tmpDb1, tmpDb1Map
 		ret = "switch of data sources successful"
 	} else {
 		ret = "data source 2 not set"
