@@ -27,6 +27,14 @@ func Db1() *sql.DB {
 	return db1
 }
 
+func Db1Close() {
+	if db1 != nil {
+		err := db1.Close()
+		util.CheckErr(err)
+		db1 = nil
+	}
+}
+
 func IndependentDb1Mapper() *gorp.DbMap {
 	var dbmap *gorp.DbMap
 	if sh1.Type == "sqlite3" {
