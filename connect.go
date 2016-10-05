@@ -120,7 +120,7 @@ func TraceOff() {
 // of a sql query.
 func CheckRes(sqlRes sql.Result, err error) {
 	defer logx.SL().Incr().Decr()
-	defer logx.SL().Incr().Decr()
+	// defer logx.SL().Incr().Decr()
 	util.CheckErr(err)
 	liId, err := sqlRes.LastInsertId()
 	util.CheckErr(err)
