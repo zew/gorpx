@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strings"
 
 	"github.com/zew/logx"
 	"github.com/zew/util"
@@ -86,7 +87,8 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 
 	} else {
 		connStr2 := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", sh.User, util.EnvVar("SQL_PW"), sh.Host, sh.Port, sh.DbName, paramsJoined)
-		logx.Printf("cn %q - gorp conn: %v", cnKey, connStr2)
+		connStrWithoutPass := strings.Replace(connStr2, util.EnvVar("SQL_PW"), "secret", -1)
+		logx.Printf("cn %q - gorp conn: %v", cnKey, connStrWithoutPass)
 		db4, err = sql.Open("mysql", connStr2)
 		util.CheckErr(err)
 	}
