@@ -78,6 +78,47 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 				logx.Printf("cn %q: could not open %v: %v", cnKey, v, err)
 				continue
 			}
+
+			// Following pragmas speed up backup or clone immensely
+			{
+				res, err := db4.Exec("PRAGMA automatic_index = false;")
+				if err != nil {
+					logx.Printf("pragma automatic_index failed: %v", err)
+				}
+				logx.Printf("pragma automatic_index succeeded; %v", res)
+			}
+
+			{
+				res, err := db4.Exec("PRAGMA journal_mode = OFF;")
+				if err != nil {
+					logx.Printf("pragma journal_mode failed: %v", err)
+				}
+				logx.Printf("pragma journal_mode succeeded; %v", res)
+			}
+
+			{
+				res, err := db4.Exec("PRAGMA main.journal_mode = OFF;")
+				if err != nil {
+					logx.Printf("pragma journal_mode failed: %v", err)
+				}
+				logx.Printf("pragma journal_mode succeeded; %v", res)
+			}
+
+			{
+				res, err := db4.Exec("PRAGMA synchronous = 0;")
+				if err != nil {
+					logx.Printf("pragma synchronous failed: %v", err)
+				}
+				logx.Printf("pragma synchronous succeeded; %v", res)
+			}
+			{
+				res, err := db4.Exec("PRAGMA main.synchronous = 0;")
+				if err != nil {
+					logx.Printf("pragma synchronous failed: %v", err)
+				}
+				logx.Printf("pragma synchronous succeeded; %v", res)
+			}
+
 			found = true
 			break
 		}
