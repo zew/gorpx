@@ -20,6 +20,11 @@ func InitDb3(hosts SQLHosts, key ...string) {
 		sh3, db3 = initDB(hosts, key...)
 	}
 }
+
+func Type3() string {
+	return sh3.Type
+}
+
 func Db3() *sql.DB {
 	if db3 == nil {
 		logx.Fatalf("Db3() requires previous call to InitDb3()")
