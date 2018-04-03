@@ -3,7 +3,6 @@ package gorpx
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"runtime"
@@ -27,7 +26,8 @@ type SQLHost struct {
 
 type SQLHosts map[string]SQLHost
 
-func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
+// Connects to a db and pings it as a check
+func initDB(hosts SQLHosts, key string) (SQLHost, *sql.DB) {
 
 	var (
 		db4 *sql.DB
@@ -36,13 +36,10 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 	)
 
 	if len(hosts) == 0 {
-		logx.Fatalf("DbInit() requires a map of hosts as argument. Subsequently calls DB()")
+		logx.Fatalf("initDb() requires a map of hosts as argument. Subsequently calls sql.Open()")
 	}
-	cnKey := util.PrimeDataSource()
-	if len(keys) > 0 {
-		cnKey = keys[0]
-	}
-	sh = hosts[cnKey]
+
+	sh = hosts[key]
 
 	if sh.Type != "mysql" && sh.Type != "sqlite3" {
 		logx.Fatalf("sql host type %q unknown", sh.Type)
@@ -75,7 +72,7 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 			// file, err = os.Open(v)
 			db4, err = sql.Open("sqlite3", v)
 			if err != nil {
-				logx.Printf("cn %q: could not open %v: %v", cnKey, v, err)
+				logx.Printf("cn %q: could not open %v: %v", key, v, err)
 				continue
 			}
 
@@ -99,9 +96,9 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 			{
 				res, err := db4.Exec("PRAGMA main.journal_mode = OFF;")
 				if err != nil {
-					logx.Printf("pragma journal_mode failed: %v", err)
+					logx.Printf("pragma main.journal_mode failed: %v", err)
 				}
-				logx.Printf("pragma journal_mode succeeded; %v", res)
+				logx.Printf("pragma main.journal_mode succeeded; %v", res)
 			}
 
 			{
@@ -114,49 +111,34 @@ func initDB(hosts SQLHosts, keys ...string) (SQLHost, *sql.DB) {
 			{
 				res, err := db4.Exec("PRAGMA main.synchronous = 0;")
 				if err != nil {
-					logx.Printf("pragma synchronous failed: %v", err)
+					logx.Printf("pragma main.synchronous failed: %v", err)
 				}
-				logx.Printf("pragma synchronous succeeded; %v", res)
+				logx.Printf("pragma main.synchronous succeeded; %v", res)
 			}
 
 			found = true
 			break
 		}
 		if !found {
-			logx.Fatalf("cn %q: check the directory of main.sqlite", cnKey)
+			logx.Fatalf("cn %q: check the directory of main.sqlite", key)
 		}
 
 	} else {
 		connStr2 := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", sh.User, util.EnvVar("SQL_PW"), sh.Host, sh.Port, sh.DbName, paramsJoined)
-		connStrWithoutPass := strings.Replace(connStr2, util.EnvVar("SQL_PW"), "secret", -1)
-		logx.Printf("cn %q - gorp conn: %v", cnKey, connStrWithoutPass)
+		connStrWithoutPass := connStr2
+		if util.EnvVar("SQL_PW") != "" {
+			connStrWithoutPass = strings.Replace(connStrWithoutPass, util.EnvVar("SQL_PW"), "secret", -1)
+		}
+		logx.Printf("cn %q - gorp conn: %v", key, connStrWithoutPass)
 		db4, err = sql.Open("mysql", connStr2)
 		util.CheckErr(err)
 	}
 
 	err = db4.Ping()
 	util.CheckErr(err)
-	logx.Printf("cn %q: gorp database connection up", cnKey)
+	logx.Printf("cn %q: gorp database connection up", key)
 
 	return sh, db4
-}
-
-// Not for independent dbMappers
-func TraceOn() {
-	if db1map != nil {
-		db1map.TraceOn("gorpx cn1: ", log.New(os.Stdout, "", 0))
-	}
-	if db2map != nil {
-		db2map.TraceOn("gorpx cn1: ", log.New(os.Stdout, "", 0))
-	}
-}
-func TraceOff() {
-	if db1map != nil {
-		db1map.TraceOff()
-	}
-	if db2map != nil {
-		db2map.TraceOff()
-	}
 }
 
 // checkRes is checking the error *and* the sql result
