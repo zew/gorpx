@@ -61,6 +61,9 @@ func initDB(hosts SQLHosts, key string) (SQLHost, *sql.DB) {
 		}
 
 		fName := fmt.Sprintf("%v.sqlite", sh.DbName)
+		if strings.HasSuffix(fName, ".sqlite.sqlite") {
+			fName = strings.TrimSuffix(fName, ".sqlite") // chop off doubly extensions
+		}
 		paths := []string{
 			path.Join(".", fName),
 			path.Join(workDir, fName),
