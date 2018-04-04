@@ -1,5 +1,5 @@
-// Package gorpx manages multiple database connections
-// and a database map for each connection.
+// Package gorpx manages connections to multiple datasources (i.e. one sqlite3, another mysql)
+// and keeps a map for each datasource with connection pool and a data dict mapper.
 // The mapping of tables   is then application specific.
 // Data definition stuff   is then application specific.
 // Data modification stuff is then application specific.
@@ -21,28 +21,28 @@ import (
 //
 
 type dataSource struct {
-	host  SQLHost     // The constituting connection parameters
-	sqlDb *sql.DB     // The sql database connection
-	mp    *gorp.DbMap // The database map, that brokers the queries
+	host  SQLHost     // The constituting datasource parameters
+	sqlDb *sql.DB     // The golang sql database connection
+	mp    *gorp.DbMap // The database map, that brokers the queries to the database
 }
 
-// type TSources map[int]dataSource
-
+// A map of all datasources.
 var dataSources = map[int]dataSource{}
 
-// Previously InitDb
 // The key to SQLHosts config is given either
 //    by environment variable DATASOURCEX
 // or set to default "dsnX"
 // or explicitly submitted as optional key (i.e. for temporary backups)
-func SetAndInitDatasourceId(dataSourceId int, hosts SQLHosts, optKey ...string) {
+//
+// The resulting connection is then set as data source id x.
+// data source id 0 is the default.
+// data source id 1 is the target for comparisons.
+// data source id 2 is for backups
+func SetAndInitDatasourceId(hosts SQLHosts, dataSourceId int) {
 
 	key := os.Getenv(fmt.Sprintf("DATASOURCE%v", dataSourceId+1))
 	if key == "" {
 		key = fmt.Sprintf("dsn%v", dataSourceId+1)
-	}
-	if len(optKey) > 0 {
-		key = optKey[0]
 	}
 
 	DbClose(dataSourceId) // close previous connection
@@ -100,6 +100,9 @@ func DbClose(optDataSourceId ...int) {
 	delete(dataSources, dataSrcId)
 }
 
+// IndependentDbMapper creates a new DB Mapper on each call.
+// Because for instance EnablePlainInserts() creates irreversible changes to a DB map,
+// and we need a new one afterwards.
 func IndependentDbMapper(optDataSourceId ...int) *gorp.DbMap {
 
 	dataSrcId := 0
@@ -125,12 +128,22 @@ func IndependentDbMapper(optDataSourceId ...int) *gorp.DbMap {
 	return dbmap
 }
 
+// Some operations need several DB mappers in a row.
+// For this, we have a DB mapper "factory".
 func IndependentDbMapperFunc(idx int) func() *gorp.DbMap {
 	return func() *gorp.DbMap {
 		return IndependentDbMapper(idx)
 	}
 }
 
+// This returns default DB Map, that is being reused on each DB operation.
+// On the first call, a default map is created anew.
+// The DB default map can then be mapped to the application specific tables like this:
+// func MapAllTables(argDbMap *gorp.DbMap) {
+// 		argDbMap.AddTableWithName(paramgroup.ParamGroup{}, "paramgroup")
+// 		argDbMap.AddTable(pivot.Pivot{})
+// 		:
+// }
 func DbMap(optDataSourceId ...int) *gorp.DbMap {
 	dataSrcId := 0
 	if len(optDataSourceId) > 0 {
@@ -151,6 +164,10 @@ func Db2Map() *gorp.DbMap {
 	return DbMap(1)
 }
 
+// For fun and confusion, the table names are in lower case or title case,
+// depending on windows/linux and mysql/sqlite3.
+// It depends on the MySQL server settings, whether it objects to wrong case.
+// We cannot take any chances, we must derive the table name dynamical:
 func DbTableName(i interface{}, optDataSourceId ...int) string {
 	dataSrcId := 0
 	if len(optDataSourceId) > 0 {
@@ -170,7 +187,8 @@ func Db2TableName(i interface{}) string {
 	return DbTableName(i, 1)
 }
 
-// Not for independent dbMappers
+// Enables SQL tracing for all default dbMappers.
+// Does not affect independent dbMappers.
 func TraceOn() {
 	for key, dsrc := range dataSources {
 		if dsrc.mp != nil {
