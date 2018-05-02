@@ -127,12 +127,15 @@ func initDB(hosts SQLHosts, key string) (SQLHost, *sql.DB) {
 		}
 
 	} else {
-		connStr2 := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", sh.User, util.EnvVar("SQL_PW"), sh.Host, sh.Port, sh.DbName, paramsJoined)
+		connStr2 := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s%s", sh.User, util.EnvVarRequired("SQL_PW"), sh.Host, sh.Port, sh.DbName, paramsJoined)
+
 		connStrWithoutPass := connStr2
-		if util.EnvVar("SQL_PW") != "" {
-			connStrWithoutPass = strings.Replace(connStrWithoutPass, util.EnvVar("SQL_PW"), "secret", -1)
+		sqlPw, err := util.EnvVar("SQL_PW")
+		if err == nil && sqlPw != "" {
+			connStrWithoutPass = strings.Replace(connStrWithoutPass, sqlPw, "secret", -1)
+			logx.Printf("cn %q - gorp conn: %v", key, connStrWithoutPass)
 		}
-		logx.Printf("cn %q - gorp conn: %v", key, connStrWithoutPass)
+
 		db4, err = sql.Open("mysql", connStr2)
 		util.CheckErr(err)
 	}
