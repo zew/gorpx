@@ -41,8 +41,12 @@ var dataSources = map[int]dataSource{}
 func SetAndInitDatasourceId(hosts SQLHosts, dataSourceId int) {
 
 	key := os.Getenv(fmt.Sprintf("DATASOURCE%v", dataSourceId+1))
+	if key != "" {
+		logx.Printf("Taking datasource %q from env", key)
+	}
 	if key == "" {
 		key = fmt.Sprintf("dsn%v", dataSourceId+1)
+		logx.Printf("Taking datasource %q from id parameter", key)
 	}
 
 	DbClose(dataSourceId) // close previous connection
@@ -73,10 +77,10 @@ func Db(optDataSourceId ...int) *sql.DB {
 		dataSrcId = optDataSourceId[0]
 	}
 	if _, ok := dataSources[dataSrcId]; !ok {
-		logx.Fatalf("dataSources[%v] not set. Previous call to SetAndInitDatasourceId() required", dataSrcId)
+		logx.Fatalf("open: dataSources[%v] not set. Previous call to SetAndInitDatasourceId() required", dataSrcId)
 	}
 	if dataSources[dataSrcId].sqlDb == nil {
-		logx.Fatalf("dataSources[%v].sqlDb is nil. Previous call to SetAndInitDatasourceId() required", dataSrcId)
+		logx.Fatalf("open: dataSources[%v].sqlDb is nil. Previous call to SetAndInitDatasourceId() required", dataSrcId)
 	}
 	return dataSources[dataSrcId].sqlDb
 }
@@ -87,11 +91,11 @@ func DbClose(optDataSourceId ...int) {
 		dataSrcId = optDataSourceId[0]
 	}
 	if _, ok := dataSources[dataSrcId]; !ok {
-		logx.Printf("dataSources[%v] not set. Previous call to SetAndInitDatasourceId() required", dataSrcId)
+		logx.Printf("Closing previous: dataSources[%v] not set. Closing not necessary", dataSrcId)
 		return
 	}
 	if dataSources[dataSrcId].sqlDb == nil {
-		logx.Printf("dataSources[%v].sqlDb is nil. Previous call to SetAndInitDatasourceId() required", dataSrcId)
+		logx.Printf("Closing previous: dataSources[%v].sqlDb is nil. Closing not necessary", dataSrcId)
 		return
 	}
 
