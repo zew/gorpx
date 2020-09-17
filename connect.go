@@ -3,18 +3,19 @@ package gorpx
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"runtime"
 	"strings"
 
-	"github.com/zew/logx"
 	"github.com/zew/util"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql" // must be imported for side effects
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// SQLHost represents DB resource
 type SQLHost struct {
 	Type             string            `json:"type"` // sqlite3
 	User             string            `json:"user"`
@@ -24,6 +25,7 @@ type SQLHost struct {
 	ConnectionParams map[string]string `json:"connection_params"`
 }
 
+// SQLHosts organizes multiple DB resources
 type SQLHosts map[string]SQLHost
 
 // Connects to a db and pings it as a check
@@ -36,13 +38,13 @@ func initDB(hosts SQLHosts, key string) (SQLHost, *sql.DB) {
 	)
 
 	if len(hosts) == 0 {
-		logx.Fatalf("initDb() requires a map of hosts as argument. Subsequently calls sql.Open()")
+		log.Fatalf("initDb() requires a map of hosts as argument. Subsequently calls sql.Open()")
 	}
 
 	sh = hosts[key]
 
 	if sh.Type != "mysql" && sh.Type != "sqlite3" {
-		logx.Fatalf("sql host type %q unknown", sh.Type)
+		log.Fatalf("sql host type %q unknown", sh.Type)
 	}
 
 	// param docu at https://github.com/go-sql-driver/mysql
@@ -57,7 +59,7 @@ func initDB(hosts SQLHosts, key string) (SQLHost, *sql.DB) {
 		util.CheckErr(err)
 		_, srcFile, _, ok := runtime.Caller(1)
 		if !ok {
-			logx.Fatalf("runtime caller not found")
+			log.Fatalf("runtime caller not found")
 		}
 
 		fName := fmt.Sprintf("%v.sqlite", sh.DbName)
@@ -75,7 +77,7 @@ func initDB(hosts SQLHosts, key string) (SQLHost, *sql.DB) {
 			// file, err = os.Open(v)
 			db4, err = sql.Open("sqlite3", v)
 			if err != nil {
-				logx.Printf("cn %q: could not open %v: %v", key, v, err)
+				log.Printf("cn %q: could not open %v: %v", key, v, err)
 				continue
 			}
 
@@ -83,47 +85,47 @@ func initDB(hosts SQLHosts, key string) (SQLHost, *sql.DB) {
 			{
 				res, err := db4.Exec("PRAGMA automatic_index = false;")
 				if err != nil {
-					logx.Printf("pragma automatic_index failed: %v", err)
+					log.Printf("pragma automatic_index failed: %v", err)
 				}
-				logx.Printf("pragma automatic_index succeeded; %v", res)
+				log.Printf("pragma automatic_index succeeded; %v", res)
 			}
 
 			{
 				res, err := db4.Exec("PRAGMA journal_mode = OFF;")
 				if err != nil {
-					logx.Printf("pragma journal_mode failed: %v", err)
+					log.Printf("pragma journal_mode failed: %v", err)
 				}
-				logx.Printf("pragma journal_mode succeeded; %v", res)
+				log.Printf("pragma journal_mode succeeded; %v", res)
 			}
 
 			{
 				res, err := db4.Exec("PRAGMA main.journal_mode = OFF;")
 				if err != nil {
-					logx.Printf("pragma main.journal_mode failed: %v", err)
+					log.Printf("pragma main.journal_mode failed: %v", err)
 				}
-				logx.Printf("pragma main.journal_mode succeeded; %v", res)
+				log.Printf("pragma main.journal_mode succeeded; %v", res)
 			}
 
 			{
 				res, err := db4.Exec("PRAGMA synchronous = 0;")
 				if err != nil {
-					logx.Printf("pragma synchronous failed: %v", err)
+					log.Printf("pragma synchronous failed: %v", err)
 				}
-				logx.Printf("pragma synchronous succeeded; %v", res)
+				log.Printf("pragma synchronous succeeded; %v", res)
 			}
 			{
 				res, err := db4.Exec("PRAGMA main.synchronous = 0;")
 				if err != nil {
-					logx.Printf("pragma main.synchronous failed: %v", err)
+					log.Printf("pragma main.synchronous failed: %v", err)
 				}
-				logx.Printf("pragma main.synchronous succeeded; %v", res)
+				log.Printf("pragma main.synchronous succeeded; %v", res)
 			}
 
 			found = true
 			break
 		}
 		if !found {
-			logx.Fatalf("cn %q: check the directory of main.sqlite", key)
+			log.Fatalf("cn %q: check the directory of main.sqlite", key)
 		}
 
 	} else {
@@ -133,7 +135,7 @@ func initDB(hosts SQLHosts, key string) (SQLHost, *sql.DB) {
 		sqlPw, err := util.EnvVar("SQL_PW")
 		if err == nil && sqlPw != "" {
 			connStrWithoutPass = strings.Replace(connStrWithoutPass, sqlPw, "secret", -1)
-			logx.Printf("cn %q - gorp conn: %v", key, connStrWithoutPass)
+			log.Printf("cn %q - gorp conn: %v", key, connStrWithoutPass)
 		}
 
 		db4, err = sql.Open("mysql", connStr2)
@@ -141,26 +143,26 @@ func initDB(hosts SQLHosts, key string) (SQLHost, *sql.DB) {
 	}
 
 	err = db4.Ping()
+
 	util.CheckErr(err)
-	logx.Printf("cn %q: gorp database connection up", key)
+	log.Printf("cn %q: gorp database connection up", key)
 
 	return sh, db4
 }
 
-// checkRes is checking the error *and* the sql result
+// CheckRes is checking the error *and* the sql result
 // of a sql query.
 func CheckRes(sqlRes sql.Result, err error) {
-	defer logx.SL().Incr().Decr()
 	util.CheckErr(err)
-	liId, err := sqlRes.LastInsertId()
+	liID, err := sqlRes.LastInsertId()
 	util.CheckErr(err)
 	affected, err := sqlRes.RowsAffected()
 	util.CheckErr(err)
-	if affected > 0 && liId > 0 {
-		logx.Printf("%d row(s) affected; Id %d ", affected, liId)
+	if affected > 0 && liID > 0 {
+		log.Printf("%d row(s) affected; Id %d ", affected, liID)
 	} else if affected > 0 {
-		logx.Printf("%d row(s) affected", affected)
-	} else if liId > 0 {
-		logx.Printf("Id %d", liId)
+		log.Printf("%d row(s) affected", affected)
+	} else if liID > 0 {
+		log.Printf("Id %d", liID)
 	}
 }

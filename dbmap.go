@@ -13,7 +13,6 @@ import (
 	"reflect"
 
 	"github.com/zew/gorp"
-	"github.com/zew/logx"
 	"github.com/zew/util"
 )
 
@@ -29,7 +28,7 @@ type dataSource struct {
 // A map of all datasources.
 var dataSources = map[int]dataSource{}
 
-// The key to SQLHosts config is given either
+// SetAndInitDatasourceId - the key to SQLHosts config is given either
 //    by environment variable DATASOURCEX
 // or set to default "dsnX"
 // or explicitly submitted as optional key (i.e. for temporary backups)
@@ -42,16 +41,16 @@ func SetAndInitDatasourceId(hosts SQLHosts, dataSourceId int) {
 
 	key := os.Getenv(fmt.Sprintf("DATASOURCE%v", dataSourceId+1))
 	if key != "" {
-		logx.Printf("Taking datasource %q from env", key)
+		log.Printf("Taking datasource %q from env", key)
 	}
 	if key == "" {
 		key = fmt.Sprintf("dsn%v", dataSourceId+1)
-		logx.Printf("Taking datasource %q from id parameter", key)
+		log.Printf("Taking datasource %q from id parameter", key)
 	}
 
 	DbClose(dataSourceId) // close previous connection
 
-	// logx.Printf("\tinit key %v", key)
+	// log.Printf("\tinit key %v", key)
 	host, sqlDb := initDB(hosts, key)
 	dsrc := dataSource{
 		host:  host,
@@ -60,63 +59,65 @@ func SetAndInitDatasourceId(hosts SQLHosts, dataSourceId int) {
 	dataSources[dataSourceId] = dsrc
 }
 
-func Type(optDataSourceId ...int) string {
-	dataSrcId := 0
-	if len(optDataSourceId) > 0 {
-		dataSrcId = optDataSourceId[0]
+// Type returns "sqllite or mysql" by data source index
+func Type(optDataSourceID ...int) string {
+	dataSrcID := 0
+	if len(optDataSourceID) > 0 {
+		dataSrcID = optDataSourceID[0]
 	}
-	if _, ok := dataSources[dataSrcId]; !ok {
-		logx.Fatalf("dataSources[%v] not set. Previous call to SetAndInitDatasourceId() required", dataSrcId)
+	if _, ok := dataSources[dataSrcID]; !ok {
+		log.Fatalf("dataSources[%v] not set. Previous call to SetAndInitDatasourceId() required", dataSrcID)
 	}
-	return dataSources[dataSrcId].host.Type
+	return dataSources[dataSrcID].host.Type
 }
 
-func Db(optDataSourceId ...int) *sql.DB {
-	dataSrcId := 0
-	if len(optDataSourceId) > 0 {
-		dataSrcId = optDataSourceId[0]
+// Db returns the data source by data source index
+func Db(optDataSourceID ...int) *sql.DB {
+	dataSrcID := 0
+	if len(optDataSourceID) > 0 {
+		dataSrcID = optDataSourceID[0]
 	}
-	if _, ok := dataSources[dataSrcId]; !ok {
-		logx.Fatalf("open: dataSources[%v] not set. Previous call to SetAndInitDatasourceId() required", dataSrcId)
+	if _, ok := dataSources[dataSrcID]; !ok {
+		log.Fatalf("open: dataSources[%v] not set. Previous call to SetAndInitDatasourceId() required", dataSrcID)
 	}
-	if dataSources[dataSrcId].sqlDb == nil {
-		logx.Fatalf("open: dataSources[%v].sqlDb is nil. Previous call to SetAndInitDatasourceId() required", dataSrcId)
+	if dataSources[dataSrcID].sqlDb == nil {
+		log.Fatalf("open: dataSources[%v].sqlDb is nil. Previous call to SetAndInitDatasourceId() required", dataSrcID)
 	}
-	return dataSources[dataSrcId].sqlDb
+	return dataSources[dataSrcID].sqlDb
 }
 
-func DbClose(optDataSourceId ...int) {
-	dataSrcId := 0
-	if len(optDataSourceId) > 0 {
-		dataSrcId = optDataSourceId[0]
+// DbClose closes by data source index
+func DbClose(optDataSourceID ...int) {
+	dataSrcID := 0
+	if len(optDataSourceID) > 0 {
+		dataSrcID = optDataSourceID[0]
 	}
-	if _, ok := dataSources[dataSrcId]; !ok {
-		logx.Printf("Closing previous: dataSources[%v] not set. Closing not necessary", dataSrcId)
+	if _, ok := dataSources[dataSrcID]; !ok {
+		log.Printf("Closing previous: dataSources[%v] not set. Closing not necessary", dataSrcID)
 		return
 	}
-	if dataSources[dataSrcId].sqlDb == nil {
-		logx.Printf("Closing previous: dataSources[%v].sqlDb is nil. Closing not necessary", dataSrcId)
+	if dataSources[dataSrcID].sqlDb == nil {
+		log.Printf("Closing previous: dataSources[%v].sqlDb is nil. Closing not necessary", dataSrcID)
 		return
 	}
 
-	err := dataSources[dataSrcId].sqlDb.Close()
+	err := dataSources[dataSrcID].sqlDb.Close()
 	util.CheckErr(err)
-	delete(dataSources, dataSrcId)
+	delete(dataSources, dataSrcID)
 }
 
 // IndependentDbMapper creates a new DB Mapper on each call.
 // Because for instance EnablePlainInserts() creates irreversible changes to a DB map,
 // and we need a new one afterwards.
-func IndependentDbMapper(optDataSourceId ...int) *gorp.DbMap {
-
-	dataSrcId := 0
-	if len(optDataSourceId) > 0 {
-		dataSrcId = optDataSourceId[0]
+func IndependentDbMapper(optDataSourceID ...int) *gorp.DbMap {
+	dataSrcID := 0
+	if len(optDataSourceID) > 0 {
+		dataSrcID = optDataSourceID[0]
 	}
 
 	var dbmap *gorp.DbMap
-	if Type(dataSrcId) == "sqlite3" {
-		dbmap = &gorp.DbMap{Db: Db(dataSrcId), Dialect: gorp.SqliteDialect{}}
+	if Type(dataSrcID) == "sqlite3" {
+		dbmap = &gorp.DbMap{Db: Db(dataSrcID), Dialect: gorp.SqliteDialect{}}
 		// We have to enable foreign_keys for EVERY connection
 		// There is a gorp pull request, implementing this
 		// dbmap.Exec("PRAGMA foreign_keys = true")
@@ -124,15 +125,19 @@ func IndependentDbMapper(optDataSourceId ...int) *gorp.DbMap {
 		hasFK_B, err := dbmap.SelectStr("PRAGMA foreign_keys")
 		util.CheckErr(err)
 		if hasFK_B != "1" {
-			logx.Printf("PRAGMA foreign_keys is %v  %T | err is %v", hasFK_B, hasFK_B, err)
+			log.Printf("PRAGMA foreign_keys is %v  %T | err is %v", hasFK_B, hasFK_B, err)
 		}
 	} else {
-		dbmap = &gorp.DbMap{Db: Db(dataSrcId), Dialect: gorp.MySQLDialect{"InnoDB", "UTF8"}}
+		dbmap = &gorp.DbMap{
+			Db:      Db(dataSrcID),
+			Dialect: gorp.MySQLDialect{Engine: "InnoDB", Encoding: "UTF8"},
+		}
 	}
 	return dbmap
 }
 
-// Some operations need several DB mappers in a row.
+// IndependentDbMapperFunc for some operations
+// who need several DB mappers in a row.
 // For this, we have a DB mapper "factory".
 func IndependentDbMapperFunc(idx int) func() *gorp.DbMap {
 	return func() *gorp.DbMap {
@@ -140,7 +145,7 @@ func IndependentDbMapperFunc(idx int) func() *gorp.DbMap {
 	}
 }
 
-// This returns default DB Map, that is being reused on each DB operation.
+// DbMap returns default DB Map, that is being reused on each DB operation.
 // On the first call, a default map is created anew.
 // The DB default map can then be mapped to the application specific tables like this:
 // func MapAllTables(argDbMap *gorp.DbMap) {
@@ -148,50 +153,54 @@ func IndependentDbMapperFunc(idx int) func() *gorp.DbMap {
 // 		argDbMap.AddTable(pivot.Pivot{})
 // 		:
 // }
-func DbMap(optDataSourceId ...int) *gorp.DbMap {
-	dataSrcId := 0
-	if len(optDataSourceId) > 0 {
-		dataSrcId = optDataSourceId[0]
+func DbMap(optDataSourceID ...int) *gorp.DbMap {
+	dataSrcID := 0
+	if len(optDataSourceID) > 0 {
+		dataSrcID = optDataSourceID[0]
 	}
-	if _, ok := dataSources[dataSrcId]; !ok {
-		logx.Fatalf("dataSources[%v] not set. Previous call to SetAndInitDatasourceId() required", dataSrcId)
+	if _, ok := dataSources[dataSrcID]; !ok {
+		log.Fatalf("dataSources[%v] not set. Previous call to SetAndInitDatasourceId() required", dataSrcID)
 	}
-	if dataSources[dataSrcId].mp == nil {
-		dsrc := dataSources[dataSrcId]
-		dsrc.mp = IndependentDbMapper(dataSrcId)
-		dataSources[dataSrcId] = dsrc
+	if dataSources[dataSrcID].mp == nil {
+		dsrc := dataSources[dataSrcID]
+		dsrc.mp = IndependentDbMapper(dataSrcID)
+		dataSources[dataSrcID] = dsrc
 	}
-	// logx.Printf("Dialect1: %v", dataSources[dataSrcId].mp.Dialect)
-	return dataSources[dataSrcId].mp
+	// log.Printf("Dialect1: %v", dataSources[dataSrcId].mp.Dialect)
+	return dataSources[dataSrcID].mp
 }
+
+// Db2Map returns the second DB Map
 func Db2Map() *gorp.DbMap {
 	return DbMap(1)
 }
 
-// For fun and confusion, the table names are in lower case or title case,
+// DbTableName - for fun and confusion, the table names are in lower case or title case,
 // depending on windows/linux and mysql/sqlite3.
 // It depends on the MySQL server settings, whether it objects to wrong case.
 // We cannot take any chances, we must derive the table name dynamical:
-func DbTableName(i interface{}, optDataSourceId ...int) string {
-	dataSrcId := 0
-	if len(optDataSourceId) > 0 {
-		dataSrcId = optDataSourceId[0]
+func DbTableName(i interface{}, optDataSourceID ...int) string {
+	dataSrcID := 0
+	if len(optDataSourceID) > 0 {
+		dataSrcID = optDataSourceID[0]
 	}
 	t := reflect.TypeOf(i)
-	if table, err := DbMap(dataSrcId).TableFor(t, false); table != nil && err == nil {
-		if DbMap(dataSrcId).Dialect == nil {
-			logx.Fatalf("dbmap dataSrcIdhas no dialect")
+	if table, err := DbMap(dataSrcID).TableFor(t, false); table != nil && err == nil {
+		if DbMap(dataSrcID).Dialect == nil {
+			log.Fatalf("dbmap dataSrcIdhas no dialect")
 		}
-		ret := DbMap(dataSrcId).Dialect.QuoteField(table.TableName)
+		ret := DbMap(dataSrcID).Dialect.QuoteField(table.TableName)
 		return ret
 	}
 	return t.Name()
 }
+
+// Db2TableName returns the table name from the second data source index
 func Db2TableName(i interface{}) string {
 	return DbTableName(i, 1)
 }
 
-// Enables SQL tracing for all default dbMappers.
+// TraceOn enables SQL tracing for all default dbMappers.
 // Does not affect independent dbMappers.
 func TraceOn() {
 	for key, dsrc := range dataSources {
@@ -202,6 +211,7 @@ func TraceOn() {
 	}
 }
 
+// TraceOff disables SQL tracing
 func TraceOff() {
 	for key, dsrc := range dataSources {
 		if dsrc.mp != nil {
